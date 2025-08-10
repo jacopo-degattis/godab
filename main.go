@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"godab/api"
 	"log"
 	"os"
@@ -11,6 +12,14 @@ func main() {
 	serverEndpoint := os.Getenv("DAB_ENDPOINT")
 	downloadLocation := os.Getenv("DOWNLOAD_LOCATION")
 
+	asciiArt := `
+  ____           _       _     
+ / ___| ___   __| | __ _| |__  
+| |  _ / _ \ / _\` + "`" + ` |/ _\` + "`" + ` | '_ \ 
+| |_| | (_) | (_| | (_| | |_) |
+ \____|\___/ \__,_|\__,_|_.__/ 
+`
+
 	if serverEndpoint == "" {
 		panic("You must provide a valid `DAB_ENDPOINT` env variable")
 	}
@@ -19,7 +28,6 @@ func main() {
 		panic("You must provide a valid `DOWNLOAD_LOCATION` env variable")
 	}
 
-	// Replace URL and DOWNLOAD_PATH with a ENV variable
 	dapi := api.New(serverEndpoint, downloadLocation)
 
 	var (
@@ -40,10 +48,11 @@ func main() {
 		flag.Usage()
 	}
 
+	fmt.Println(asciiArt)
+
 	if album != "" {
 		dapi.DownloadAlbum(album)
 	} else if track != "" {
-		// TODO: first I need to fetch track infos in order to get filename and then use it
-		// dapi.DownloadTrack(*track)
+		fmt.Println("#TODO: Feature not yet supported.")
 	}
 }
