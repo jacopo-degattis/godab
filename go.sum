@@ -6,6 +6,8 @@ github.com/jacopo-degattis/flacgo v0.0.0-20250809135149-8338f19b20e8 h1:bwy0kaQ4
 github.com/jacopo-degattis/flacgo v0.0.0-20250809135149-8338f19b20e8/go.mod h1:La+DjX3aftUUmEW0AIOTm3lMVYMz935xISckVtqu0pE=
 github.com/jacopo-degattis/flacgo v1.1.0 h1:+bT/8jqiojOph9QUaoRE13ON9R34Cf0qgucvR7pBN2Y=
 github.com/jacopo-degattis/flacgo v1.1.0/go.mod h1:La+DjX3aftUUmEW0AIOTm3lMVYMz935xISckVtqu0pE=
+github.com/jacopo-degattis/flacgo v1.1.1 h1:9teZFF2az8MHUC3mipzAS3jSJm+b1P4y0Uid+1D0Tjg=
+github.com/jacopo-degattis/flacgo v1.1.1/go.mod h1:La+DjX3aftUUmEW0AIOTm3lMVYMz935xISckVtqu0pE=
 github.com/mattn/go-runewidth v0.0.16 h1:E5ScNMtiwvlvB5paMFdw9p4kSQzbXFikJ5SQO6TULQc=
 github.com/mattn/go-runewidth v0.0.16/go.mod h1:Jdepj2loyihRzMpdS35Xk/zdY8IAYHsh153qUoGf23w=
 github.com/mitchellh/colorstring v0.0.0-20190213212951-d06e56a500db h1:62I3jR2EmQ4l5rM/4FEfDWcRD+abF5XlKShorW5LRoQ=

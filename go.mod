@@ -3,7 +3,7 @@ module godab
 go 1.24.4
 
 require (
-	github.com/jacopo-degattis/flacgo v1.1.0
+	github.com/jacopo-degattis/flacgo v1.1.1
 	github.com/schollz/progressbar/v3 v3.18.0
 )
 

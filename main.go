@@ -6,6 +6,7 @@ import (
 	"godab/api"
 	"log"
 	"os"
+	"strconv"
 )
 
 func main() {
@@ -31,19 +32,21 @@ func main() {
 	dapi := api.New(serverEndpoint, downloadLocation)
 
 	var (
-		album string
-		track string
+		album  string
+		track  string
+		artist string
 	)
 
 	flag.StringVar(&album, "album", "", "Album URL to download")
 	flag.StringVar(&track, "track", "", "Track URL to download")
+	flag.StringVar(&artist, "artist", "", "Artist URL to download")
 	flag.Parse()
 
-	if album == "" && track == "" {
+	if album == "" && track == "" && artist == "" {
 		flag.Usage()
 	}
 
-	if album != "" && track != "" {
+	if (album != "" && track != "") || (artist != "" && track != "") || (album != "" && artist != "") {
 		log.Fatalf("You can download only one between `album` and `track` at a time.")
 		flag.Usage()
 	}
@@ -51,8 +54,32 @@ func main() {
 	fmt.Println(asciiArt)
 
 	if album != "" {
-		dapi.DownloadAlbum(album)
+		err := dapi.DownloadAlbum(album)
+
+		if err != nil {
+			panic(err)
+		}
 	} else if track != "" {
-		fmt.Println("#TODO: Feature not yet supported.")
+		track, err := dapi.GetTrackMetadata(track)
+
+		if err != nil {
+			panic(err)
+		}
+
+		dapi.DownloadTrack(
+			strconv.Itoa(track.ID),
+			fmt.Sprintf("%s/%s.flac", downloadLocation, track.Title),
+			true,
+		)
+
+		dapi.AddMetadata(fmt.Sprintf("%s/%s.flac", downloadLocation, track.Title), api.Metadatas{
+			Title:  track.Title,
+			Artist: track.Artist,
+			Album:  track.Album,
+			Date:   track.ReleaseDate,
+			Cover:  track.Cover,
+		})
 	}
+
+	// TODO: add support for entire artist download
 }

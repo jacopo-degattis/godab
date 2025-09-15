@@ -1,11 +1,8 @@
 package api
 
 import (
-	"fmt"
 	"os"
 	"strings"
-
-	"github.com/jacopo-degattis/flacgo"
 )
 
 func DirExists(path string) bool {
@@ -14,28 +11,6 @@ func DirExists(path string) bool {
 		return false
 	}
 	return err == nil && info.IsDir()
-}
-
-func AddMetadata(targetFile string, metadatas flacgo.FlacMetadatas) error {
-	reader, err := flacgo.Open(targetFile)
-
-	if err != nil {
-		return fmt.Errorf("unable to initialize flacgo: %w", err)
-	}
-
-	err = reader.BulkAddMetadata(metadatas)
-
-	if err != nil {
-		return fmt.Errorf("unable to add some meadata: %w", err)
-	}
-
-	err = reader.Save(nil)
-
-	if err != nil {
-		panic(err)
-	}
-
-	return nil
 }
 
 func ReplaceNth(s, old, new string, n int) string {

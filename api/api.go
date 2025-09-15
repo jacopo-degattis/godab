@@ -21,28 +21,49 @@ type DabApi struct {
 	outputLocation string
 }
 
-type Track struct {
+type AlbumTrack struct {
 	ID          string `json:"id"`
 	Title       string `json:"title"`
 	Artist      string `json:"artist"`
+	Album       string `json:"albumTitle"`
 	Cover       string `json:"albumCover"`
 	ReleaseDate string `json:"releaseDate"`
 	// Make this a integer with seconds or a formatted string "MM:ss"
 	Duration int `json:"duration"`
 }
 
+type Track struct {
+	ID          int    `json:"id"`
+	Title       string `json:"title"`
+	Artist      string `json:"artist"`
+	Album       string `json:"albumTitle"`
+	Cover       string `json:"albumCover"`
+	ReleaseDate string `json:"releaseDate"`
+	// Make this a integer with seconds or a formatted string "MM:ss"
+	Duration int `json:"duration"`
+}
+
+type Album struct {
+	ID          string       `json:"id"`
+	Title       string       `json:"title"`
+	Artist      string       `json:"artist"`
+	Cover       string       `json:"cover"`
+	ReleaseDate string       `json:"releaseDate"`
+	Tracks      []AlbumTrack `json:"tracks"`
+	// todo: add if is high-res or not?
+}
+
 type AlbumsResults struct {
 	Items []Album `json:"albums"`
 }
 
-type Album struct {
-	ID          string  `json:"id"`
-	Title       string  `json:"title"`
-	Artist      string  `json:"artist"`
-	Cover       string  `json:"cover"`
-	ReleaseDate string  `json:"releaseDate"`
-	Tracks      []Track `json:"tracks"`
-	// todo: add if is high-res or not?
+type TrackResults struct {
+	Items []Track `json:"tracks"`
+}
+
+type SearchResults struct {
+	Tracks TrackResults
+	Albums AlbumsResults
 }
 
 type AlbumResponse struct {
@@ -63,12 +84,12 @@ type Metadata struct {
 	Value string
 }
 
-type TrackMetadataInfos struct {
+type Metadatas struct {
 	Title  string
 	Artist string
 	Album  string
 	Date   string
-	Cover  []byte
+	Cover  string
 }
 
 func New(endpoint string, outputLocation string) *DabApi {
@@ -87,8 +108,7 @@ func (api *DabApi) Request(path string, isPathOnly bool, params []QueryParams) (
 		u, err := url.Parse(fullUrl)
 
 		if err != nil {
-			log.Fatalf("[!] Error while parsing url %s", fullUrl)
-			return nil, err
+			return nil, fmt.Errorf("error while parsing url %s: %w", fullUrl, err)
 		}
 
 		q := u.Query()
@@ -105,25 +125,23 @@ func (api *DabApi) Request(path string, isPathOnly bool, params []QueryParams) (
 	res, err := http.Get(fullUrl)
 
 	if err != nil {
-		log.Fatalf("[!] Error while fetching endpoint %s with error %s", fullUrl, err)
-		return nil, err
+		return nil, fmt.Errorf("error while fetching endpoint %s with error %w", fullUrl, err)
 	}
 
 	if res.StatusCode != http.StatusOK {
-		log.Fatalf("[!] Request to %s failed with status code %s", fullUrl, res.Status)
-		return nil, err
+		return nil, fmt.Errorf("request to %s failed with status code: %s", fullUrl, res.Status)
 	}
 
 	return res, nil
 }
 
-func (api *DabApi) Search(query *string, queryType string) (*AlbumsResults, error) {
+func (api *DabApi) Search(query *string, queryType string) (*SearchResults, error) {
 	if query == nil || *query == "" {
-		log.Fatalf("[!] Error in search(): You must provide a valid query parameter.")
+		return nil, fmt.Errorf("error in search(): you must provide a valid query parameter")
 	}
 
 	if queryType != "album" && queryType != "track" {
-		log.Fatalf("[!] Error in search(): you must provide a queryType of either type `track` or `album`")
+		return nil, fmt.Errorf("error in search(): you must provide a queryType of either type `track` or `album`")
 	}
 
 	res, err := api.Request("api/search", true, []QueryParams{
@@ -135,17 +153,51 @@ func (api *DabApi) Search(query *string, queryType string) (*AlbumsResults, erro
 	}
 	defer res.Body.Close()
 
-	var albums AlbumsResults
-	err = json.NewDecoder(res.Body).Decode(&albums)
+	var searchResponse SearchResults
 
-	if err != nil {
-		log.Fatalf("[!] Error while decoding albums into struct %s", err)
+	switch queryType {
+	case "album":
+		var albums AlbumsResults
+		err = json.NewDecoder(res.Body).Decode(&albums)
+
+		if err != nil {
+			return nil, fmt.Errorf("error while decoding albums into struct %w", err)
+		}
+
+		searchResponse.Albums = albums
+	case "track":
+		var response TrackResults
+		err = json.NewDecoder(res.Body).Decode(&response)
+
+		if err != nil {
+			return nil, fmt.Errorf("error while decoding tracks into struct %w", err)
+		}
+
+		searchResponse.Tracks = response
 	}
 
-	return &albums, nil
+	return &searchResponse, nil
 }
 
-func (api *DabApi) DownloadTrack(trackId string, outputName string) error {
+func (api *DabApi) GetTrackMetadata(trackId string) (Track, error) {
+	res, err := api.Search(&trackId, "track")
+
+	if err != nil {
+		return Track{}, fmt.Errorf("error whlie searching for track id %s with error: %w", trackId, err)
+	}
+
+	tracks := res.Tracks
+
+	if len(tracks.Items) == 0 {
+		return Track{}, fmt.Errorf("no results found for track id %s", trackId)
+	}
+
+	trackData := tracks.Items[0]
+
+	return trackData, nil
+}
+
+func (api *DabApi) DownloadTrack(trackId string, outputName string, withProgress bool) error {
 	res, err := api.Request("api/stream", true, []QueryParams{
 		{Name: "trackId", Value: trackId},
 		{Name: "quality", Value: "27"},
@@ -168,6 +220,18 @@ func (api *DabApi) DownloadTrack(trackId string, outputName string) error {
 	}
 	defer res.Body.Close()
 
+	// With progress bar
+	if withProgress {
+		f, _ := os.OpenFile(outputName, os.O_CREATE|os.O_WRONLY, 0644)
+		bar := progressbar.DefaultBytes(
+			res.ContentLength,
+			fmt.Sprintf("Downloading track with id: %s", trackId),
+		)
+		io.Copy(io.MultiWriter(f, bar), res.Body)
+		return nil
+	}
+
+	// Without progress bar
 	trackBytes, err := io.ReadAll(res.Body)
 
 	if err != nil {
@@ -179,13 +243,54 @@ func (api *DabApi) DownloadTrack(trackId string, outputName string) error {
 	return nil
 }
 
+func (api *DabApi) AddMetadata(targetFile string, metadatas Metadatas) error {
+	reader, err := flacgo.Open(targetFile)
+
+	if err != nil {
+		return fmt.Errorf("unable to initialize flacgo: %w", err)
+	}
+
+	res, err := api.Request(metadatas.Cover, false, []QueryParams{})
+
+	if err != nil {
+		return fmt.Errorf("unable to fetch full url '%s' with status code: %d", metadatas.Cover, res.StatusCode)
+	}
+
+	defer res.Body.Close()
+
+	coverBytes, err := io.ReadAll(res.Body)
+	if err != nil {
+		panic(err)
+	}
+
+	err = reader.BulkAddMetadata(flacgo.FlacMetadatas{
+		Title:  metadatas.Title,
+		Artist: metadatas.Artist,
+		Album:  metadatas.Album,
+		Date:   metadatas.Date,
+		Cover:  coverBytes,
+	})
+
+	if err != nil {
+		return fmt.Errorf("unable to add some meadata: %w", err)
+	}
+
+	err = reader.Save(nil)
+
+	if err != nil {
+		return fmt.Errorf("error while saving track with metadata: %w", err)
+	}
+
+	return nil
+}
+
 func (api *DabApi) DownloadAlbum(albumId string) error {
 	res, err := api.Request("api/album", true, []QueryParams{
 		{Name: "albumId", Value: albumId},
 	})
 
 	if err != nil {
-		log.Fatalf("[!] Error while downloading album %s", err)
+		return fmt.Errorf("error while downloading album %w", err)
 	}
 	defer res.Body.Close()
 
@@ -193,26 +298,24 @@ func (api *DabApi) DownloadAlbum(albumId string) error {
 	err = json.NewDecoder(res.Body).Decode(&response)
 
 	if err != nil {
-		log.Fatalf("[!] Error while parsing result into struct: %s", err)
+		return fmt.Errorf("error while parsing result into struct: %w", err)
 	}
 
 	if !DirExists(api.outputLocation) {
-		log.Fatalf("[!] Specified location for file downloads doesn't exists.")
+		return fmt.Errorf("specified location for file downloads doesn't exists")
 	}
 
 	var albumLocation = fmt.Sprintf("%s%s", api.outputLocation, ReplaceNth(response.Album.Title, " ", "", 2))
 
 	if DirExists(albumLocation) {
-		log.Fatalf("[!] Album directory already exists.")
+		return fmt.Errorf("album directory already exists")
 	}
 
 	err = os.Mkdir(albumLocation, 0755)
 
 	if err != nil {
-		log.Fatalf("[!] Error while creating directory %s: %s", albumLocation, err)
+		return fmt.Errorf("while creating directory %s: %w", albumLocation, err)
 	}
-
-	fmt.Printf("[+] Downloading album: %s by %s\n", response.Album.Title, response.Album.Artist)
 
 	bar := progressbar.Default(int64(len(response.Album.Tracks)))
 
@@ -224,32 +327,19 @@ func (api *DabApi) DownloadAlbum(albumId string) error {
 		wg.Add(1)
 		sem <- struct{}{}
 
-		go func(track Track) error {
+		go func(track AlbumTrack) error {
 			defer wg.Done()
 			defer func() { <-sem }()
 
 			outputName := fmt.Sprintf("%s/%s.flac", albumLocation, track.Title)
-			api.DownloadTrack(track.ID, outputName)
+			api.DownloadTrack(track.ID, outputName, false)
 
-			res, err = api.Request(track.Cover, false, []QueryParams{})
-
-			if err != nil {
-				return fmt.Errorf("unable to fetch full url '%s' with status code: %d", track.Cover, res.StatusCode)
-			}
-
-			defer res.Body.Close()
-
-			coverBytes, err := io.ReadAll(res.Body)
-			if err != nil {
-				panic(err)
-			}
-
-			err = AddMetadata(outputName, flacgo.FlacMetadatas{
+			err = api.AddMetadata(outputName, Metadatas{
 				Title:  track.Title,
 				Artist: track.Artist,
 				Album:  response.Album.Title,
 				Date:   track.ReleaseDate,
-				Cover:  coverBytes,
+				Cover:  track.Cover,
 			})
 
 			if err != nil {
