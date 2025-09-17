@@ -60,19 +60,19 @@ func main() {
 		err := dapi.DownloadAlbum(album)
 
 		if err != nil {
-			log.Fatalf("Error while downloading album with id %s: %s", album, err)
+			log.Fatalf("Cannot download album %s: %s", album, err)
 		}
 	} else if track != "" {
 		err := dapi.DownloadTrack(track)
 
 		if err != nil {
-			log.Fatalf("Error while downloading track with id %s: %s", track, err)
+			log.Fatalf("Cannot download track %s: %s", track, err)
 		}
 	} else if artist != "" {
 		err := dapi.DownloadArtist(artist)
 
 		if err != nil {
-			panic(err)
+			log.Fatalf("Cannot download artist %s: %s", track, err)
 		}
 	}
 }

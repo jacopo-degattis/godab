@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -25,24 +24,6 @@ type DabApi struct {
 	outputLocation string
 }
 
-// type AlbumTrack struct {
-// 	ID          string `json:"id"`
-// 	Title       string `json:"title"`
-// 	Artist      string `json:"artist"`
-// 	Album       string `json:"albumTitle"`
-// 	Cover       string `json:"albumCover"`
-// 	ReleaseDate string `json:"releaseDate"`
-// 	// Make this a integer with seconds or a formatted string "MM:ss"
-// 	Duration int `json:"duration"`
-// }
-
-type Artist struct {
-	ID          int    `json:"id"`
-	Name        string `json:"name"`
-	AlbumsCount int    `json:"albumsCount"`
-	Albums      []Album
-}
-
 type Track struct {
 	Id          ID     `json:"id"`
 	Title       string `json:"title"`
@@ -50,8 +31,7 @@ type Track struct {
 	Album       string `json:"albumTitle"`
 	Cover       string `json:"albumCover"`
 	ReleaseDate string `json:"releaseDate"`
-	// Make this a integer with seconds or a formatted string "MM:ss"
-	Duration int `json:"duration"`
+	Duration    int    `json:"duration"`
 }
 
 type Album struct {
@@ -61,7 +41,6 @@ type Album struct {
 	Cover       string  `json:"cover"`
 	ReleaseDate string  `json:"releaseDate"`
 	Tracks      []Track `json:"tracks"`
-	// todo: add if is high-res or not?
 }
 
 type AlbumsResults struct {
@@ -77,16 +56,7 @@ type SearchResults struct {
 	Albums AlbumsResults
 }
 
-type StreamUrl struct {
-	Url string `json:"url"`
-}
-
 type QueryParams struct {
-	Name  string
-	Value string
-}
-
-type Metadata struct {
 	Name  string
 	Value string
 }
@@ -124,7 +94,7 @@ func (api *DabApi) _request(path string, isPathOnly bool, params []QueryParams) 
 		u, err := url.Parse(fullUrl)
 
 		if err != nil {
-			return nil, fmt.Errorf("error while parsing url %s: %w", fullUrl, err)
+			return nil, fmt.Errorf("cannot parse url %s", fullUrl)
 		}
 
 		q := u.Query()
@@ -141,7 +111,7 @@ func (api *DabApi) _request(path string, isPathOnly bool, params []QueryParams) 
 	res, err := http.Get(fullUrl)
 
 	if err != nil {
-		return nil, fmt.Errorf("error while fetching endpoint %s with error %w", fullUrl, err)
+		return nil, fmt.Errorf("can't fetch endpoint %s: %w", fullUrl, err)
 	}
 
 	if res.StatusCode != http.StatusOK {
@@ -161,7 +131,7 @@ func (api *DabApi) _addMetadata(targetFile string, metadatas Metadatas) error {
 	res, err := api._request(metadatas.Cover, false, []QueryParams{})
 
 	if err != nil {
-		return fmt.Errorf("unable to fetch full url '%s' with status code: %d", metadatas.Cover, res.StatusCode)
+		return fmt.Errorf("can't download cover")
 	}
 
 	defer res.Body.Close()
@@ -186,7 +156,7 @@ func (api *DabApi) _addMetadata(targetFile string, metadatas Metadatas) error {
 	err = reader.Save(nil)
 
 	if err != nil {
-		return fmt.Errorf("error while saving track with metadata: %w", err)
+		return fmt.Errorf("can't save track with metadata: %w", err)
 	}
 
 	return nil
@@ -194,11 +164,11 @@ func (api *DabApi) _addMetadata(targetFile string, metadatas Metadatas) error {
 
 func (api *DabApi) Search(query *string, queryType string) (*SearchResults, error) {
 	if query == nil || *query == "" {
-		return nil, fmt.Errorf("error in search(): you must provide a valid query parameter")
+		return nil, fmt.Errorf("you must provide a valid query parameter")
 	}
 
 	if queryType != "album" && queryType != "track" {
-		return nil, fmt.Errorf("error in search(): you must provide a queryType of either type `track` or `album`")
+		return nil, fmt.Errorf("you must provide a queryType of either type `track` or `album`")
 	}
 
 	res, err := api._request("api/search", true, []QueryParams{
@@ -206,7 +176,7 @@ func (api *DabApi) Search(query *string, queryType string) (*SearchResults, erro
 		{Name: "type", Value: queryType},
 	})
 	if err != nil {
-		return nil, fmt.Errorf("unable to fetch endpoint /api/search with status code: %d", res.StatusCode)
+		return nil, fmt.Errorf("search endpoint failed with status code: %d", res.StatusCode)
 	}
 	defer res.Body.Close()
 
@@ -218,7 +188,7 @@ func (api *DabApi) Search(query *string, queryType string) (*SearchResults, erro
 		err = json.NewDecoder(res.Body).Decode(&albums)
 
 		if err != nil {
-			return nil, fmt.Errorf("error while decoding albums into struct %w", err)
+			return nil, fmt.Errorf("cannot decode response: %w", err)
 		}
 
 		searchResponse.Albums = albums
@@ -227,7 +197,7 @@ func (api *DabApi) Search(query *string, queryType string) (*SearchResults, erro
 		err = json.NewDecoder(res.Body).Decode(&response)
 
 		if err != nil {
-			return nil, fmt.Errorf("error while decoding tracks into struct %w", err)
+			return nil, fmt.Errorf("cannot decode response: %w", err)
 		}
 
 		searchResponse.Tracks = response
@@ -240,7 +210,7 @@ func (api *DabApi) GetTrackMetadata(trackId string) (Track, error) {
 	res, err := api.Search(&trackId, "track")
 
 	if err != nil {
-		return Track{}, fmt.Errorf("error whlie searching for track id %s with error: %w", trackId, err)
+		return Track{}, fmt.Errorf("search api failed: %w", err)
 	}
 
 	tracks := res.Tracks
@@ -255,31 +225,42 @@ func (api *DabApi) GetTrackMetadata(trackId string) (Track, error) {
 }
 
 func (api *DabApi) _downloadTrack(track Track, location string, withProgress bool) error {
+	type StreamUrl struct {
+		Url string `json:"url"`
+	}
+
 	res, err := api._request("api/stream", true, []QueryParams{
 		{Name: "trackId", Value: strconv.Itoa(int(track.Id))},
 		{Name: "quality", Value: "27"},
 	})
 	if err != nil {
-		return fmt.Errorf("unable to fetch endpoint /api/stream with status code: %d", res.StatusCode)
+		return fmt.Errorf("can't get stream URL: %w", err)
 	}
 	defer res.Body.Close()
 
-	var response StreamUrl
-	err = json.NewDecoder(res.Body).Decode(&response)
+	if res.StatusCode != http.StatusOK {
+		return fmt.Errorf("request failed with status: %d", res.StatusCode)
+	}
 
-	if err != nil {
-		log.Fatalf("[!] Error while decoding streamUrl into a struct")
+	var response StreamUrl
+	if err = json.NewDecoder(res.Body).Decode(&response); err != nil {
+		return fmt.Errorf("can't decode stream response: %w", err)
 	}
 
 	res, err = api._request(response.Url, false, []QueryParams{})
 	if err != nil {
-		return fmt.Errorf("unable to fetch full url: '%s' with status code: %d", response.Url, res.StatusCode)
+		return fmt.Errorf("request failed: %w", err)
 	}
 	defer res.Body.Close()
 
 	// With progress bar
 	if withProgress {
-		f, _ := os.OpenFile(location, os.O_CREATE|os.O_WRONLY, 0644)
+		f, err := os.OpenFile(location, os.O_CREATE|os.O_WRONLY, 0644)
+
+		if err != nil {
+			return fmt.Errorf("can't create file %s: %w", location, err)
+		}
+
 		bar := progressbar.DefaultBytes(
 			res.ContentLength,
 			fmt.Sprintf("Downloading track with id: %s", strconv.Itoa(int(track.Id))),
@@ -289,12 +270,12 @@ func (api *DabApi) _downloadTrack(track Track, location string, withProgress boo
 		// Without progress bar
 		trackBytes, err := io.ReadAll(res.Body)
 		if err != nil {
-			log.Fatalf("[!] Error while saving to local file %s", err)
+			return fmt.Errorf("can't read from body: %w", err)
 		}
 
 		err = os.WriteFile(location, trackBytes, 0644)
 		if err != nil {
-			return fmt.Errorf("error while writing file to system: %w", err)
+			return fmt.Errorf("cannot save file: %w", err)
 		}
 	}
 
@@ -307,7 +288,7 @@ func (api *DabApi) _downloadTrack(track Track, location string, withProgress boo
 	})
 
 	if err != nil {
-		return fmt.Errorf("error while adding metadata: %w", err)
+		return fmt.Errorf("cannot add metadata: %w", err)
 	}
 
 	return nil
@@ -316,7 +297,7 @@ func (api *DabApi) _downloadTrack(track Track, location string, withProgress boo
 func (api *DabApi) DownloadTrack(trackId string) error {
 	track, err := api.GetTrackMetadata(trackId)
 	if err != nil {
-		return fmt.Errorf("error while fetching metadata for track %s: %w", trackId, err)
+		return fmt.Errorf("track not found")
 	}
 
 	var rootFolder = fmt.Sprintf("%s/%s", api.outputLocation, track.Artist)
@@ -329,12 +310,12 @@ func (api *DabApi) DownloadTrack(trackId string) error {
 	location := fmt.Sprintf("%s/%s.flac", rootFolder, track.Title)
 
 	if FileExists(location) {
-		return fmt.Errorf("track already exists at path: %s", location)
+		return fmt.Errorf("track already found at path %s", location)
 	}
 
 	err = api._downloadTrack(track, location, true)
 	if err != nil {
-		return fmt.Errorf("error while downloaing track with id %d: %w", track.Id, err)
+		return fmt.Errorf("%w", err)
 	}
 
 	return nil
@@ -362,10 +343,10 @@ func (api *DabApi) _downloadAlbum(album Album) error {
 	err := os.Mkdir(albumLocation, 0755)
 
 	if err != nil {
-		return fmt.Errorf("error while creating directory %s: %w", albumLocation, err)
+		return fmt.Errorf("can't create dir %s", albumLocation)
 	}
 
-	bar := progressbar.Default(int64(len(album.Tracks)))
+	bar := progressbar.Default(int64(len(album.Tracks)), fmt.Sprintf("Downloading %s", album.Title))
 
 	maxConcurrent := 3
 	var wg sync.WaitGroup
@@ -383,7 +364,7 @@ func (api *DabApi) _downloadAlbum(album Album) error {
 			err = api._downloadTrack(track, location, false)
 
 			if err != nil {
-				return fmt.Errorf("error while downloading track with id %d for inside album %s: %w", track.Id, album.Id, err)
+				return fmt.Errorf("can't download track %d", track.Id)
 			}
 
 			bar.Add(1)
@@ -399,6 +380,10 @@ func (api *DabApi) _downloadAlbum(album Album) error {
 }
 
 func (api *DabApi) DownloadAlbum(albumId string) error {
+	type Response struct {
+		Album Album `json:"album"`
+	}
+
 	res, err := api._request("api/album", true, []QueryParams{
 		{Name: "albumId", Value: albumId},
 	})
@@ -408,51 +393,55 @@ func (api *DabApi) DownloadAlbum(albumId string) error {
 	}
 	defer res.Body.Close()
 
-	type Response struct {
-		Album Album `json:"album"`
-	}
-
 	var response Response
 	err = json.NewDecoder(res.Body).Decode(&response)
 
+	if response.Album.Id == "0" {
+		return fmt.Errorf("album not found")
+	}
+
 	if err != nil {
-		return fmt.Errorf("error while parsing result into struct: %w", err)
+		return fmt.Errorf("failed decoding result: %w", err)
 	}
 
 	err = api._downloadAlbum(response.Album)
 
 	if err != nil {
-		return fmt.Errorf("error while downloading album with id %s: %w", albumId, err)
+		return fmt.Errorf("%w", err)
 	}
 
 	return nil
 }
 
 func (api *DabApi) GetArtistDiscography(artistId string) ([]Album, error) {
+	type Response struct {
+		Albums []Album `json:"albums"`
+	}
+
 	res, err := api._request("/api/discography", true, []QueryParams{
 		{Name: "artistId", Value: artistId},
 	})
 
 	if err != nil {
-		return nil, fmt.Errorf("unable to fetch /api/discography: %w", err)
+		return nil, fmt.Errorf("discography api failed: %w", err)
 	}
 	defer res.Body.Close()
-
-	type Response struct {
-		Albums []Album `json:"albums"`
-	}
 
 	var response Response
 	err = json.NewDecoder(res.Body).Decode(&response)
 
 	if err != nil {
-		return nil, fmt.Errorf("error while decoding into struct: %w", err)
+		return nil, fmt.Errorf("failed decoding into struct: %w", err)
 	}
 
 	return response.Albums, nil
 }
 
 func (api *DabApi) _downloadArtist(albums []Album) error {
+	type Response struct {
+		Album Album `json:"album"`
+	}
+
 	artistName := albums[0].Artist
 
 	var rootFolder = fmt.Sprintf("%s/%s", api.outputLocation, artistName)
@@ -464,31 +453,21 @@ func (api *DabApi) _downloadArtist(albums []Album) error {
 	bar := progressbar.Default(int64(len(albums)))
 
 	for _, album := range albums {
-		fmt.Printf("\n[+] Downloading album: %s\n", album.Title)
-
 		res, err := api._request("api/album", true, []QueryParams{
 			{Name: "albumId", Value: album.Id},
 		})
 
 		if err != nil {
-			return fmt.Errorf("error while downloading album: %w", err)
-		}
-
-		type Response struct {
-			Album Album `json:"album"`
+			return fmt.Errorf("album api failed: %w", err)
 		}
 
 		var response Response
-		err = json.NewDecoder(res.Body).Decode(&response)
-
-		if err != nil {
-			return fmt.Errorf("error while downloading album: %w", err)
+		if err := json.NewDecoder(res.Body).Decode(&response); err != nil {
+			return fmt.Errorf("failed decoding response: %w", err)
 		}
 
-		err = api._downloadAlbum(response.Album)
-
-		if err != nil {
-			return fmt.Errorf("error while downloading album %s: %w", album.Title, err)
+		if err = api._downloadAlbum(response.Album); err != nil {
+			return fmt.Errorf("%w", err)
 		}
 
 		bar.Add(1)
@@ -501,17 +480,17 @@ func (api *DabApi) DownloadArtist(artistId string) error {
 	albums, err := api.GetArtistDiscography(artistId)
 
 	if err != nil {
-		return fmt.Errorf("error while fetching /api/discography: %w", err)
+		return fmt.Errorf("artist discography not found")
 	}
 
 	if len(albums) == 0 {
-		return fmt.Errorf("artist with id %s has no albums", artistId)
+		return fmt.Errorf("artist %s has no albums", artistId)
 	}
 
 	err = api._downloadArtist(albums)
 
 	if err != nil {
-		return fmt.Errorf("error while downloading artist: %w", err)
+		return fmt.Errorf("%w", err)
 	}
 
 	return nil
