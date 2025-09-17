@@ -13,6 +13,11 @@ func DirExists(path string) bool {
 	return err == nil && info.IsDir()
 }
 
+func FileExists(path string) bool {
+	_, err := os.Stat(path)
+	return !os.IsNotExist(err)
+}
+
 func ReplaceNth(s, old, new string, n int) string {
 	i := 0
 	start := 0
