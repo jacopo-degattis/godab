@@ -6,12 +6,15 @@ import (
 	"godab/api"
 	"log"
 	"os"
-	"strconv"
 )
 
 func main() {
 	serverEndpoint := os.Getenv("DAB_ENDPOINT")
 	downloadLocation := os.Getenv("DOWNLOAD_LOCATION")
+
+	if !api.DirExists(downloadLocation) {
+		log.Fatalf("You must provide a valid DOWNLOAD_LOCATION folder")
+	}
 
 	asciiArt := `
   ____           _       _     
@@ -57,29 +60,19 @@ func main() {
 		err := dapi.DownloadAlbum(album)
 
 		if err != nil {
-			panic(err)
+			log.Fatalf("Cannot download album %s: %s", album, err)
 		}
 	} else if track != "" {
-		track, err := dapi.GetTrackMetadata(track)
+		err := dapi.DownloadTrack(track)
 
 		if err != nil {
-			panic(err)
+			log.Fatalf("Cannot download track %s: %s", track, err)
 		}
+	} else if artist != "" {
+		err := dapi.DownloadArtist(artist)
 
-		dapi.DownloadTrack(
-			strconv.Itoa(track.ID),
-			fmt.Sprintf("%s/%s.flac", downloadLocation, track.Title),
-			true,
-		)
-
-		dapi.AddMetadata(fmt.Sprintf("%s/%s.flac", downloadLocation, track.Title), api.Metadatas{
-			Title:  track.Title,
-			Artist: track.Artist,
-			Album:  track.Album,
-			Date:   track.ReleaseDate,
-			Cover:  track.Cover,
-		})
+		if err != nil {
+			log.Fatalf("Cannot download artist %s: %s", track, err)
+		}
 	}
-
-	// TODO: add support for entire artist download
 }
