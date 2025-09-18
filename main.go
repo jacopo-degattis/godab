@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"godab/api"
 	"log"
 	"os"
@@ -32,8 +31,6 @@ func main() {
 		panic("You must provide a valid `DOWNLOAD_LOCATION` env variable")
 	}
 
-	dapi := api.New(serverEndpoint, downloadLocation)
-
 	var (
 		album  string
 		track  string
@@ -54,25 +51,39 @@ func main() {
 		flag.Usage()
 	}
 
-	fmt.Println(asciiArt)
+	// fmt.Println(asciiArt)
+	api.PrintColor(api.COLOR_BLUE, "%s", asciiArt)
 
 	if album != "" {
-		err := dapi.DownloadAlbum(album)
+		album, err := api.NewAlbum(album)
 
 		if err != nil {
-			log.Fatalf("Cannot download album %s: %s", album, err)
+			log.Fatalf("Error: %s", err)
+		}
+
+		if err := album.Download(true); err != nil {
+			log.Fatalf("Cannot download album %s: %s", album.Title, err)
 		}
 	} else if track != "" {
-		err := dapi.DownloadTrack(track)
+		track, err := api.NewTrack(track)
 
 		if err != nil {
-			log.Fatalf("Cannot download track %s: %s", track, err)
+			log.Fatalf("Error: %s", err)
+		}
+
+		if err := track.Download(); err != nil {
+			log.Fatalf("Cannot download track %s: %s", track.Title, err)
 		}
 	} else if artist != "" {
-		err := dapi.DownloadArtist(artist)
+		artist, err := api.NewArtist(artist)
 
 		if err != nil {
-			log.Fatalf("Cannot download artist %s: %s", track, err)
+			log.Fatalf("Error: %s", err)
 		}
+
+		if err := artist.Download(); err != nil {
+			log.Fatalf("Cannot download artist %s: %s", artist.Name, err)
+		}
+
 	}
 }

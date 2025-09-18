@@ -51,3 +51,8 @@ go run main.go -track <TRACK_ID>
 
 #ARTIST
 go run main.go -artist <ARTIST_ID>
+```
+
+## Slow downloads
+
+If downloads take longer than usual to download and software may seem slower it is related to slow API fetching and responses.
