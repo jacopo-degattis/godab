@@ -56,14 +56,14 @@ func (album *Album) downloadAlbum() error {
 		return fmt.Errorf("specified location for file downloads doesn't exists")
 	}
 
-	var rootFolder = fmt.Sprintf("%s/%s", outputLocation, album.Artist)
+	var rootFolder = fmt.Sprintf("%s/%s", outputLocation, SanitizeFilename(album.Artist))
 
 	// Create artist folder if it doesn't exist
 	if !DirExists(rootFolder) {
 		os.Mkdir(rootFolder, 0755)
 	}
 
-	var albumLocation = fmt.Sprintf("%s/%s", rootFolder, ReplaceNth(album.Title, " ", "", 2))
+	var albumLocation = fmt.Sprintf("%s/%s", rootFolder, ReplaceNth(SanitizeFilename(album.Title), " ", "", 2))
 
 	if DirExists(albumLocation) {
 		return fmt.Errorf("album directory already exists")
@@ -89,7 +89,7 @@ func (album *Album) downloadAlbum() error {
 			defer wg.Done()
 			defer func() { <-sem }()
 
-			location := fmt.Sprintf("%s/%s.flac", albumLocation, track.Title)
+			location := fmt.Sprintf("%s/%s.flac", albumLocation, SanitizeFilename(track.Title))
 			err = track.downloadTrack(location, false)
 
 			if err != nil {
