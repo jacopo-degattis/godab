@@ -12,7 +12,7 @@ func GetEndpoint() string {
 	if endpoint != "" {
 		return endpoint
 	}
-	return "https://dab.yeet.su"
+	return "https://dabmusic.xyz"
 }
 
 func GetDownloadLocation() string {
