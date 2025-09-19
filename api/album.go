@@ -63,7 +63,7 @@ func (album *Album) downloadAlbum() error {
 		os.Mkdir(rootFolder, 0755)
 	}
 
-	var albumLocation = fmt.Sprintf("%s/%s", rootFolder, ReplaceNth(SanitizeFilename(album.Title), " ", "", 2))
+	var albumLocation = fmt.Sprintf("%s/%s", rootFolder, SanitizeFilename(album.Title))
 
 	if DirExists(albumLocation) {
 		return fmt.Errorf("album directory already exists")
