@@ -77,9 +77,21 @@ func (album *Album) downloadAlbum() error {
 
 	bar := NewProgressBar(len(album.Tracks), "ALBUM", fmt.Sprintf("Downloading %s", album.Title), false)
 
+	// Force initial bar render
+	// bar.Add(1)
+	bar.RenderBlank()
+
 	maxConcurrent := 3
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, maxConcurrent)
+	errChan := make(chan error, len(album.Tracks))
+	progressChan := make(chan int, len(album.Tracks)) // Channel for progress updates
+
+	go func() {
+		for range progressChan {
+			bar.Add(1)
+		}
+	}()
 
 	for _, track := range album.Tracks {
 		wg.Add(1)
@@ -93,10 +105,10 @@ func (album *Album) downloadAlbum() error {
 			err = track.downloadTrack(location, false)
 
 			if err != nil {
-				return fmt.Errorf("can't download track %d", track.Id)
+				errChan <- fmt.Errorf("%d", track.Id)
 			}
 
-			bar.Add(1)
+			progressChan <- 1
 			time.Sleep(time.Millisecond)
 			time.Sleep(time.Duration(rand.Intn(1500)+500) * time.Millisecond)
 
@@ -104,7 +116,23 @@ func (album *Album) downloadAlbum() error {
 		}(track)
 	}
 
-	wg.Wait()
+	go func() {
+		wg.Wait()
+		close(errChan)
+		close(progressChan)
+	}()
+
+	var errors []error
+	for err := range errChan {
+		errors = append(errors, err)
+	}
+
+	bar.Finish()
+
+	if len(errors) > 0 {
+		return fmt.Errorf("completed with %d errors: %v", len(errors), errors)
+	}
+
 	return nil
 }
 
