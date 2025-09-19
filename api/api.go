@@ -1,6 +1,7 @@
 package api
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"godab/config"
@@ -73,7 +74,26 @@ func _request(path string, isPathOnly bool, params []QueryParams) (resp *http.Re
 		fullUrl = path
 	}
 
-	res, err := http.Get(fullUrl)
+	tlsConfig := &tls.Config{
+		MinVersion: tls.VersionTLS13,
+	}
+
+	transport := &http.Transport{
+		TLSClientConfig: tlsConfig,
+	}
+
+	client := &http.Client{
+		Transport: transport,
+	}
+
+	req, err := http.NewRequest(http.MethodGet, fullUrl, nil)
+	if err != nil {
+		return nil, fmt.Errorf("can't create request: %w", err)
+	}
+
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36")
+
+	res, err := client.Do(req)
 
 	if err != nil {
 		return nil, fmt.Errorf("can't fetch endpoint %s: %w", fullUrl, err)
