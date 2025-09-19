@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/jacopo-degattis/flacgo"
 )
@@ -84,6 +85,7 @@ func _request(path string, isPathOnly bool, params []QueryParams) (resp *http.Re
 
 	client := &http.Client{
 		Transport: transport,
+		Timeout:   30 * time.Second,
 	}
 
 	req, err := http.NewRequest(http.MethodGet, fullUrl, nil)
