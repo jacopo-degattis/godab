@@ -47,22 +47,6 @@ func FileExists(path string) bool {
 	return !os.IsNotExist(err)
 }
 
-func ReplaceNth(s, old, new string, n int) string {
-	i := 0
-	start := 0
-
-	for count := 0; count < n; count++ {
-		idx := strings.Index(s[start:], old)
-		if idx == -1 {
-			return s // less than n occurrences
-		}
-		i = start + idx
-		start = i + len(old)
-	}
-
-	return s[:i] + new + s[i+len(old):]
-}
-
 func PrintColor(color Color, format string, args ...any) {
 	statement := fmt.Sprintf(format, args...)
 	println(colorMapping[color] + statement + colorMapping[COLOR_RESET])

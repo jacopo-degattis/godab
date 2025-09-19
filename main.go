@@ -75,4 +75,6 @@ func main() {
 		}
 
 	}
+
+	log.Println()
 }
