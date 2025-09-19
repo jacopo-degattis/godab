@@ -8,9 +8,17 @@ var Env = map[string]string{
 }
 
 func GetEndpoint() string {
-	return Env["DAB_ENDPOINT"]
+	endpoint := Env["DAB_ENDPOINT"]
+	if endpoint != "" {
+		return endpoint
+	}
+	return "https://dab.yeet.su"
 }
 
 func GetDownloadLocation() string {
-	return Env["DOWNLOAD_LOCATION"]
+	downloadLocation := Env["DOWNLOAD_LOCATION"]
+	if downloadLocation != "" {
+		return downloadLocation
+	}
+	return "."
 }
