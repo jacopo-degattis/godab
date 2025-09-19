@@ -2,7 +2,7 @@
 
 ## Description
 
-A [dab.yeet.su](https://dab.yeet.su) CLI downloader written in go.
+A [dabmusic](https://dabmusic.xyz) CLI downloader written in go.
 
 ## Build
 
