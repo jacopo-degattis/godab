@@ -126,14 +126,14 @@ func (track *Track) downloadTrack(location string, withProgress bool) error {
 }
 
 func (track *Track) Download() error {
-	var rootFolder = fmt.Sprintf("%s/%s", config.GetDownloadLocation(), track.Artist)
+	var rootFolder = fmt.Sprintf("%s/%s", config.GetDownloadLocation(), SanitizeFilename(track.Artist))
 
 	// Create artist folder if it doesn't exist
 	if !DirExists(rootFolder) {
 		os.Mkdir(rootFolder, 0755)
 	}
 
-	location := fmt.Sprintf("%s/%s.flac", rootFolder, track.Title)
+	location := fmt.Sprintf("%s/%s.flac", rootFolder, SanitizeFilename(track.Title))
 
 	if FileExists(location) {
 		return fmt.Errorf("track already found at path %s", location)

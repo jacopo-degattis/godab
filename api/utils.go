@@ -100,3 +100,19 @@ func NewProgressBar(maxValue int, downloadType string, description string, isByt
 
 	return bar
 }
+
+func SanitizeFilename(filename string) string {
+	badCharacters := []string{"\\", "/", "<", ">", "?", "*", "|", "\"", ":"}
+	sanitized := filename
+
+	for _, char := range badCharacters {
+		sanitized = strings.ReplaceAll(sanitized, char, "_")
+	}
+
+	sanitized = strings.Trim(sanitized, " .")
+	if len(sanitized) > 255 {
+		sanitized = sanitized[:255]
+	}
+
+	return sanitized
+}
