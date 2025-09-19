@@ -3,15 +3,12 @@ package main
 import (
 	"flag"
 	"godab/api"
+	"godab/config"
 	"log"
-	"os"
 )
 
 func main() {
-	serverEndpoint := os.Getenv("DAB_ENDPOINT")
-	downloadLocation := os.Getenv("DOWNLOAD_LOCATION")
-
-	if !api.DirExists(downloadLocation) {
+	if !api.DirExists(config.GetDownloadLocation()) {
 		log.Fatalf("You must provide a valid DOWNLOAD_LOCATION folder")
 	}
 
@@ -22,14 +19,6 @@ func main() {
 | |_| | (_) | (_| | (_| | |_) |
  \____|\___/ \__,_|\__,_|_.__/ 
 `
-
-	if serverEndpoint == "" {
-		panic("You must provide a valid `DAB_ENDPOINT` env variable")
-	}
-
-	if downloadLocation == "" {
-		panic("You must provide a valid `DOWNLOAD_LOCATION` env variable")
-	}
 
 	var (
 		album  string
