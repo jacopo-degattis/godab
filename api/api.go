@@ -36,11 +36,12 @@ type QueryParams struct {
 }
 
 type Metadatas struct {
-	Title  string
-	Artist string
-	Album  string
-	Date   string
-	Cover  string
+	Title       string
+	Artist      string
+	Album       string
+	Date        string
+	Cover       string
+	TrackNumber int
 }
 
 // Support both album kind of track and single-track search
