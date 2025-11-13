@@ -20,6 +20,7 @@ $ go run main.go
 ```
 
 N.B: Remember that you always have to define two env variables
+
 - DOWNLOAD_LOCATION: to specify the location where you want your files to be downloaded
 - DAB_ENDPOINT: url of the `dab.yeet` domain you want to hit
 
@@ -30,13 +31,14 @@ You can download any album or track using the following commands
 ### First export needed env variables
 
 ```sh
-export DAB_ENDPOINT=<DAB_ENDPOINT> 
+export DAB_ENDPOINT=<DAB_ENDPOINT>
 export DOWNLOAD_LOCATION=<LOCATION>
 ```
 
 Like in the following example:
+
 ```sh
-export DAB_ENDPOINT=https://dab.yeet.su
+export DAB_ENDPOINT=https://dabmusic.xyz
 export DOWNLOAD_LOCATION=.
 ```
 

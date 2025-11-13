@@ -106,4 +106,6 @@ func main() {
 			log.Fatalf("Cannot download artist %s: %s", artist.Name, err)
 		}
 	}
+
+	log.Println()
 }

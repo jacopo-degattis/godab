@@ -18,6 +18,7 @@ type Track struct {
 	Cover       string `json:"albumCover"`
 	ReleaseDate string `json:"releaseDate"`
 	Duration    int    `json:"duration"`
+	TrackNumber int    `json:"-"`
 }
 
 func NewTrack(trackId string) (*Track, error) {
@@ -111,11 +112,12 @@ func (track *Track) downloadTrack(location string, withProgress bool) error {
 	}
 
 	err = _addMetadata(location, Metadatas{
-		Title:  track.Title,
-		Artist: track.Artist,
-		Album:  track.Album,
-		Date:   track.ReleaseDate,
-		Cover:  track.Cover,
+		Title:       track.Title,
+		Artist:      track.Artist,
+		Album:       track.Album,
+		Date:        track.ReleaseDate,
+		Cover:       track.Cover,
+		TrackNumber: track.TrackNumber,
 	})
 
 	if err != nil {
