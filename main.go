@@ -21,17 +21,26 @@ func main() {
 `
 
 	var (
-		album  string
-		track  string
-		artist string
+		email    string
+		password string
+		album    string
+		track    string
+		artist   string
 	)
 
+	flag.StringVar(&email, "email", "", "Dabmusic email")
+	flag.StringVar(&password, "password", "", "Dabmusic password")
 	flag.StringVar(&album, "album", "", "Album URL to download")
 	flag.StringVar(&track, "track", "", "Track URL to download")
 	flag.StringVar(&artist, "artist", "", "Artist URL to download")
 	flag.Parse()
 
-	if album == "" && track == "" && artist == "" {
+	if album == "" && track == "" && artist == "" && email == "" && password == "" {
+		flag.Usage()
+	}
+
+	if (email != "" && password == "") || (email == "" && password != "") {
+		log.Fatalf("In order to login you must provide both -email and -password.")
 		flag.Usage()
 	}
 
@@ -42,6 +51,29 @@ func main() {
 
 	// fmt.Println(asciiArt)
 	api.PrintColor(api.COLOR_BLUE, "%s", asciiArt)
+
+	loggedIn, err := api.LoadCookies()
+
+	if err != nil {
+		api.PrintColor(api.COLOR_YELLOW, "You're not logged-in, please log in using: -email and -password")
+		return
+	}
+
+	if email != "" && password != "" {
+		err := api.Login(email, password)
+
+		if err != nil {
+			log.Fatalf("Error: %s", err)
+		}
+
+		api.PrintColor(api.COLOR_GREEN, "[+] Logged in succesfully!")
+		return
+	}
+
+	if !loggedIn {
+		api.PrintColor(api.COLOR_YELLOW, "You must be logged in to download from dabmusic")
+		return
+	}
 
 	if album != "" {
 		album, err := api.NewAlbum(album)
@@ -73,7 +105,6 @@ func main() {
 		if err := artist.Download(); err != nil {
 			log.Fatalf("Cannot download artist %s: %s", artist.Name, err)
 		}
-
 	}
 
 	log.Println()

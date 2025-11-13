@@ -1,13 +1,18 @@
 package api
 
 import (
+	"bytes"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"godab/config"
 	"io"
 	"net/http"
+	"net/http/cookiejar"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -44,6 +49,17 @@ type Metadatas struct {
 	TrackNumber int
 }
 
+var jar, _ = cookiejar.New(nil)
+var client = &http.Client{
+	Transport: &http.Transport{
+		TLSClientConfig: &tls.Config{
+			MinVersion: tls.VersionTLS13,
+		},
+	},
+	Jar:     jar,
+	Timeout: 30 * time.Second,
+}
+
 // Support both album kind of track and single-track search
 func (id *ID) UnmarshalJSON(data []byte) error {
 	s := string(data)
@@ -51,6 +67,29 @@ func (id *ID) UnmarshalJSON(data []byte) error {
 	val, _ := strconv.Atoi(s)
 	*id = ID(val)
 	return nil
+}
+
+func LoadCookies() (bool, error) {
+	if _, err := os.Stat(".token"); errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	}
+
+	path := filepath.Join(".token")
+	dat, err := os.ReadFile(path)
+
+	if err != nil {
+		return false, fmt.Errorf("unable to read .token file")
+	}
+
+	url, _ := url.Parse(config.GetEndpoint())
+	client.Jar.SetCookies(url, []*http.Cookie{
+		{
+			Name:  "session",
+			Value: string(dat),
+		},
+	})
+
+	return dat != nil, nil
 }
 
 func _request(path string, isPathOnly bool, params []QueryParams) (resp *http.Response, err error) {
@@ -74,19 +113,6 @@ func _request(path string, isPathOnly bool, params []QueryParams) (resp *http.Re
 		fullUrl = u.String()
 	} else {
 		fullUrl = path
-	}
-
-	tlsConfig := &tls.Config{
-		MinVersion: tls.VersionTLS13,
-	}
-
-	transport := &http.Transport{
-		TLSClientConfig: tlsConfig,
-	}
-
-	client := &http.Client{
-		Transport: transport,
-		Timeout:   30 * time.Second,
 	}
 
 	req, err := http.NewRequest(http.MethodGet, fullUrl, nil)
@@ -150,6 +176,70 @@ func _addMetadata(targetFile string, metadatas Metadatas) error {
 	return nil
 }
 
+func Login(email string, password string) error {
+	if email == "" || password == "" {
+		return fmt.Errorf("invalid email or password")
+	}
+
+	body := struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}{
+		Email:    email,
+		Password: password,
+	}
+
+	out, err := json.Marshal(body)
+	if err != nil {
+		return fmt.Errorf("cannot encode login body")
+	}
+
+	res, err := http.Post(
+		fmt.Sprintf("%s/%s", config.GetEndpoint(), "api/auth/login"),
+		"application/json",
+		bytes.NewBuffer(out),
+	)
+
+	if res.StatusCode == 401 {
+		return fmt.Errorf("invalid credentials")
+	}
+
+	if res.StatusCode == 200 {
+		var token = ""
+		for _, cook := range res.Cookies() {
+			if cook.Name == "session" {
+				token = cook.Value
+			}
+		}
+
+		if token == "" {
+			return fmt.Errorf("unable to get token")
+		}
+
+		path := filepath.Join(".token")
+		err := os.WriteFile(path, []byte(token), 0644)
+
+		if err != nil {
+			return fmt.Errorf("unable to write .token file")
+		}
+
+		url, _ := url.Parse(config.GetEndpoint())
+		client.Jar.SetCookies(url, []*http.Cookie{
+			{
+				Name:  "session",
+				Value: token,
+			},
+		})
+
+	}
+
+	if err != nil {
+		return fmt.Errorf("error while making request: %w", err)
+	}
+
+	return nil
+}
+
 func Search(query *string, queryType string) (*SearchResults, error) {
 	if query == nil || *query == "" {
 		return nil, fmt.Errorf("you must provide a valid query parameter")
@@ -163,8 +253,9 @@ func Search(query *string, queryType string) (*SearchResults, error) {
 		{Name: "q", Value: *query},
 		{Name: "type", Value: queryType},
 	})
+
 	if err != nil {
-		return nil, fmt.Errorf("search endpoint failed with status code: %d", res.StatusCode)
+		return nil, fmt.Errorf("search endpoint failed: %s", err)
 	}
 	defer res.Body.Close()
 
