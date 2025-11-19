@@ -17,7 +17,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jacopo-degattis/flacgo"
+	"go.senan.xyz/taglib"
 )
 
 type ID int
@@ -136,12 +136,6 @@ func _request(path string, isPathOnly bool, params []QueryParams) (resp *http.Re
 }
 
 func _addMetadata(targetFile string, metadatas Metadatas) error {
-	reader, err := flacgo.Open(targetFile)
-
-	if err != nil {
-		return fmt.Errorf("unable to initialize flacgo: %w", err)
-	}
-
 	res, err := _request(metadatas.Cover, false, []QueryParams{})
 
 	if err != nil {
@@ -155,22 +149,23 @@ func _addMetadata(targetFile string, metadatas Metadatas) error {
 		panic(err)
 	}
 
-	err = reader.BulkAddMetadata(flacgo.FlacMetadatas{
-		Title:  metadatas.Title,
-		Artist: metadatas.Artist,
-		Album:  metadatas.Album,
-		Date:   metadatas.Date,
-		Cover:  coverBytes,
-	})
+	err = taglib.WriteTags(targetFile, map[string][]string{
+		taglib.Title:  {metadatas.Title},
+		taglib.Artist: {metadatas.Artist},
+		taglib.Album:  {metadatas.Album},
+		taglib.Date:   {metadatas.Date},
+	}, 0)
 
 	if err != nil {
-		return fmt.Errorf("unable to add some meadata: %w", err)
+		return fmt.Errorf("unable to write metadata to track")
 	}
 
-	err = reader.Save(nil)
+	if len(coverBytes) > 0 {
+		err = taglib.WriteImage(targetFile, coverBytes)
+	}
 
 	if err != nil {
-		return fmt.Errorf("can't save track with metadata: %w", err)
+		return fmt.Errorf("unable to picture meadata to track")
 	}
 
 	return nil
