@@ -59,14 +59,14 @@ func (track *Track) GetTrackMetadata() (Track, error) {
 	return trackData, nil
 }
 
-func (track *Track) downloadTrack(location string, withProgress bool) error {
+func (track *Track) downloadTrack(location string, format int, withProgress bool) error {
 	type StreamUrl struct {
 		Url string `json:"url"`
 	}
 
 	res, err := _request("api/stream", true, []QueryParams{
 		{Name: "trackId", Value: strconv.Itoa(int(track.Id))},
-		{Name: "quality", Value: "27"},
+		{Name: "quality", Value: fmt.Sprint(format)},
 	})
 	if err != nil {
 		return fmt.Errorf("can't get stream URL: %w", err)
@@ -127,7 +127,7 @@ func (track *Track) downloadTrack(location string, withProgress bool) error {
 	return nil
 }
 
-func (track *Track) Download() error {
+func (track *Track) Download(format int) error {
 	var rootFolder = fmt.Sprintf("%s/%s", config.GetDownloadLocation(), SanitizeFilename(track.Artist))
 
 	// Create artist folder if it doesn't exist
@@ -135,14 +135,20 @@ func (track *Track) Download() error {
 		os.Mkdir(rootFolder, 0755)
 	}
 
-	location := fmt.Sprintf("%s/%s.flac", rootFolder, SanitizeFilename(track.Title))
+	fileFormat := "flac"
+
+	if format == 5 {
+		fileFormat = "mp3"
+	}
+
+	location := fmt.Sprintf("%s/%s.%s", rootFolder, SanitizeFilename(track.Title), fileFormat)
 
 	if FileExists(location) {
 		return fmt.Errorf("track already found at path %s", location)
 	}
 
 	PrintColor(COLOR_GREEN, "Starting download for track %s\n", track.Title)
-	err := track.downloadTrack(location, true)
+	err := track.downloadTrack(location, format, true)
 	if err != nil {
 		return fmt.Errorf("%w", err)
 	}

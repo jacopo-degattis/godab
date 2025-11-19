@@ -41,7 +41,7 @@ func NewArtist(artistId string) (*Artist, error) {
 	return &response.Artist, nil
 }
 
-func (artist *Artist) downloadArtist() error {
+func (artist *Artist) downloadArtist(format int) error {
 	type Response struct {
 		Artist Artist `json:"artist"`
 		Album  Album  `json:"album"`
@@ -69,7 +69,7 @@ func (artist *Artist) downloadArtist() error {
 			return fmt.Errorf("failed decoding response: %w", err)
 		}
 
-		if err = response.Album.Download(false); err != nil {
+		if err = response.Album.Download(format, false); err != nil {
 			return fmt.Errorf("%w", err)
 		}
 
@@ -79,13 +79,13 @@ func (artist *Artist) downloadArtist() error {
 	return nil
 }
 
-func (artist *Artist) Download() error {
+func (artist *Artist) Download(format int) error {
 	if len(artist.Albums) == 0 {
 		return fmt.Errorf("artist %d has no albums", artist.Id)
 	}
 
 	PrintColor(COLOR_GREEN, "Starting download for artist %s\n", artist.Name)
-	err := artist.downloadArtist()
+	err := artist.downloadArtist(format)
 
 	if err != nil {
 		return fmt.Errorf("%w", err)

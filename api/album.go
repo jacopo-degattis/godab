@@ -49,7 +49,7 @@ func NewAlbum(albumId string) (*Album, error) {
 	return &response.Album, nil
 }
 
-func (album *Album) downloadAlbum() error {
+func (album *Album) downloadAlbum(format int) error {
 	outputLocation := config.GetDownloadLocation()
 
 	if !DirExists(outputLocation) {
@@ -121,8 +121,14 @@ func (album *Album) downloadAlbum() error {
 					trackName = fmt.Sprintf("%d - %s", track.TrackNumber, SanitizeFilename(track.Title))
 				}
 
-				location := fmt.Sprintf("%s/%s.flac", albumLocation, trackName)
-				err := track.downloadTrack(location, false)
+				fileFormat := "flac"
+
+				if format == 5 {
+					fileFormat = "mp3"
+				}
+
+				location := fmt.Sprintf("%s/%s.%s", albumLocation, trackName, fileFormat)
+				err := track.downloadTrack(location, format, false)
 
 				if err != nil {
 					failedTracksChan <- track
@@ -158,11 +164,12 @@ func (album *Album) downloadAlbum() error {
 	return nil
 }
 
-func (album *Album) Download(log bool) error {
+func (album *Album) Download(format int, log bool) error {
 	if log {
 		PrintColor(COLOR_GREEN, "Starting download for album %s\n", album.Title)
 	}
-	err := album.downloadAlbum()
+
+	err := album.downloadAlbum(format)
 
 	if err != nil {
 		return fmt.Errorf("%w", err)
