@@ -55,6 +55,12 @@ go run main.go -track <TRACK_ID>
 go run main.go -artist <ARTIST_ID>
 ```
 
+You can also specify the file format (i.e audio quality) using the `-quality` arg as follows
+
+```sh
+go run main.go -track <TRACK_ID> -format <MP3|FLAC>
+```
+
 ## Slow downloads
 
 If downloads take longer than usual to download and software may seem slower it is related to slow API fetching and responses.
