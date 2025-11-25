@@ -32,6 +32,7 @@ func NewTrack(trackId string) (*Track, error) {
 	metadata, err := track.GetTrackMetadata()
 
 	if err != nil {
+		fmt.Print(err)
 		return nil, fmt.Errorf("track not found")
 	}
 
@@ -42,7 +43,7 @@ func NewTrack(trackId string) (*Track, error) {
 
 func (track *Track) GetTrackMetadata() (Track, error) {
 	trackId := strconv.Itoa(int(track.Id))
-	res, err := Search(&trackId, "track")
+	res, err := Search(trackId, "track")
 
 	if err != nil {
 		return Track{}, fmt.Errorf("search api failed: %w", err)

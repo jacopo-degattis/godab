@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/jedib0t/go-pretty/table"
 	"github.com/schollz/progressbar/v3"
 )
 
@@ -99,4 +100,47 @@ func SanitizeFilename(filename string) string {
 	}
 
 	return sanitized
+}
+
+func PrintResultsTable(results *SearchResults, resultType string) {
+	var (
+		colIndex       = "#"
+		colId          = "Track ID"
+		colTitle       = "Title"
+		colArtist      = "Artist"
+		colReleaseDate = "Release date"
+		rowHeader      = table.Row{colIndex, colId, colTitle, colArtist, colReleaseDate}
+	)
+
+	tw := table.NewWriter()
+	tw.AppendHeader(rowHeader)
+
+	switch resultType {
+	case "track":
+		for idx, track := range results.Tracks.Items {
+			tw.AppendRow(table.Row{idx, track.Id, track.Title, track.Artist, track.ReleaseDate})
+		}
+	case "album":
+		for idx, album := range results.Albums.Items {
+			tw.AppendRow(table.Row{idx, album.Id, album.Title, album.Artist, album.ReleaseDate})
+		}
+	}
+
+	fmt.Println(tw.Render())
+}
+
+func PrintError(msg string) {
+	PrintColor(COLOR_RED, "%s", msg)
+	os.Exit(1)
+}
+
+func CheckErr(err error) {
+	if err != nil {
+		PrintError(err.Error())
+	}
+}
+
+var FormatMap = map[string]int{
+	"mp3":  5,
+	"flac": 27,
 }

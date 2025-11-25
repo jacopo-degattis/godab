@@ -235,8 +235,8 @@ func Login(email string, password string) error {
 	return nil
 }
 
-func Search(query *string, queryType string) (*SearchResults, error) {
-	if query == nil || *query == "" {
+func Search(query string, queryType string) (*SearchResults, error) {
+	if query == "" {
 		return nil, fmt.Errorf("you must provide a valid query parameter")
 	}
 
@@ -245,7 +245,7 @@ func Search(query *string, queryType string) (*SearchResults, error) {
 	}
 
 	res, err := _request("api/search", true, []QueryParams{
-		{Name: "q", Value: *query},
+		{Name: "q", Value: query},
 		{Name: "type", Value: queryType},
 	})
 
@@ -258,6 +258,7 @@ func Search(query *string, queryType string) (*SearchResults, error) {
 
 	switch queryType {
 	case "album":
+
 		var albums AlbumsResults
 		err = json.NewDecoder(res.Body).Decode(&albums)
 
