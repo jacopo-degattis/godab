@@ -42,25 +42,35 @@ export DAB_ENDPOINT=https://dabmusic.xyz
 export DOWNLOAD_LOCATION=.
 ```
 
-Then you can download
+### Login to your user account
+
+```sh
+go run main.go login <EMAIL> <PASSWORD>
+```
+
+### Downloading
 
 ```sh
 # ALBUM
-go run main.go -album <ALBUM_ID>
+go run main.go album <ALBUM_ID>
 
 #TRACK
-go run main.go -track <TRACK_ID>
+go run main.go track <TRACK_ID>
 
 #ARTIST
-go run main.go -artist <ARTIST_ID>
+go run main.go artist <ARTIST_ID>
 ```
 
-You can also specify the file format (i.e audio quality) using the `-quality` arg as follows
+You can also specify the file format (i.e audio quality) using the `--format` arg as follows
 
 ```sh
-go run main.go -track <TRACK_ID> -format <MP3|FLAC>
+go run main.go track <TRACK_ID> --format <MP3|FLAC>
 ```
 
-## Slow downloads
+### Searching
 
-If downloads take longer than usual to download and software may seem slower it is related to slow API fetching and responses.
+You can use the `search` command to look for tracks, albums or artists
+
+```sh
+go run main.go search <QUERY> --type <TRACK|ALBUM|ARTIST>
+```

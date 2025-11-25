@@ -35,6 +35,22 @@ const (
 	COLOR_WHITE
 )
 
+var FormatMap = map[string]int{
+	"mp3":  5,
+	"flac": 27,
+}
+
+func PrintError(msg string) {
+	PrintColor(COLOR_RED, "%s", msg)
+	os.Exit(1)
+}
+
+func CheckErr(err error) {
+	if err != nil {
+		PrintError(err.Error())
+	}
+}
+
 func DirExists(path string) bool {
 	info, err := os.Stat(path)
 	if os.IsNotExist(err) {
@@ -127,20 +143,4 @@ func PrintResultsTable(results *SearchResults, resultType string) {
 	}
 
 	fmt.Println(tw.Render())
-}
-
-func PrintError(msg string) {
-	PrintColor(COLOR_RED, "%s", msg)
-	os.Exit(1)
-}
-
-func CheckErr(err error) {
-	if err != nil {
-		PrintError(err.Error())
-	}
-}
-
-var FormatMap = map[string]int{
-	"mp3":  5,
-	"flac": 27,
 }

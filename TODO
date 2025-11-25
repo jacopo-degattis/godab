@@ -1,0 +1,6 @@
+
+- [x] Update README with new commands
+- [x] Finish cleaning code and better organize the utils.go file
+- [x] Remove useless dependencies from the go.mod and go.sum
+- Update progress bars using the same library of the one used for the table for also
+    rendering multiple progress bar together and give a general look improvement.
