@@ -13,14 +13,15 @@ func main() {
 	}
 
 	asciiArt := `
-  ____           _       _     
- / ___| ___   __| | __ _| |__  
-| |  _ / _ \ / _\` + "`" + ` |/ _\` + "`" + ` | '_ \ 
+  ____           _       _
+ / ___| ___   __| | __ _| |__
+| |  _ / _ \ / _\` + "`" + ` |/ _\` + "`" + ` | '_ \
 | |_| | (_) | (_| | (_| | |_) |
- \____|\___/ \__,_|\__,_|_.__/ 
+ \____|\___/ \__,_|\__,_|_.__/
 `
 
 	api.PrintColor(api.COLOR_BLUE, "%s", asciiArt)
+	api.PrintColor(api.COLOR_BLUE, "v%s", config.GetVersion())
 
 	loggedIn, err := api.LoadCookies()
 

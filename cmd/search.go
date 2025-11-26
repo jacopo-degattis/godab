@@ -25,6 +25,7 @@ var searchCmd = &cobra.Command{
 		}
 
 		results, err := api.Search(query, queryType)
+
 		api.CheckErr(err)
 
 		api.PrintResultsTable(results, queryType)

@@ -53,7 +53,7 @@ var albumCmd = &cobra.Command{
 }
 
 var artistCmd = &cobra.Command{
-	Use:   "arist",
+	Use:   "artist",
 	Short: "Download a artist",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {

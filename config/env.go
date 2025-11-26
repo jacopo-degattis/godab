@@ -5,6 +5,7 @@ import "os"
 var Env = map[string]string{
 	"DAB_ENDPOINT":      os.Getenv("DAB_ENDPOINT"),
 	"DOWNLOAD_LOCATION": os.Getenv("DOWNLOAD_LOCATION"),
+	"VERSION":           "1.0.0",
 }
 
 func GetEndpoint() string {
@@ -21,4 +22,8 @@ func GetDownloadLocation() string {
 		return downloadLocation
 	}
 	return "."
+}
+
+func GetVersion() string {
+	return Env["VERSION"]
 }

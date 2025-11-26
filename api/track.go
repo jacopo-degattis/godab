@@ -8,7 +8,22 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+
+	"github.com/jedib0t/go-pretty/v6/progress"
 )
+
+type ProgressReader struct {
+	Reader   io.Reader
+	Tracker  *progress.Tracker
+	Progress int64
+}
+
+func (pr *ProgressReader) Read(p []byte) (int, error) {
+	n, err := pr.Reader.Read(p)
+	pr.Progress += int64(n)
+	pr.Tracker.SetValue(pr.Progress)
+	return n, err
+}
 
 type Track struct {
 	Id          ID     `json:"id"`
@@ -41,6 +56,19 @@ func NewTrack(trackId string) (*Track, error) {
 	return track, nil
 }
 
+func (track *Track) TrackProgress(tk *progress.Tracker, res *http.Response, file *os.File) {
+	pr := &ProgressReader{
+		Reader:  res.Body,
+		Tracker: tk,
+	}
+
+	_, err := io.Copy(file, pr)
+
+	if err != nil {
+		panic(err)
+	}
+}
+
 func (track *Track) GetTrackMetadata() (Track, error) {
 	trackId := strconv.Itoa(int(track.Id))
 	res, err := Search(trackId, "track")
@@ -60,7 +88,7 @@ func (track *Track) GetTrackMetadata() (Track, error) {
 	return trackData, nil
 }
 
-func (track *Track) downloadTrack(location string, format int, withProgress bool) error {
+func (track *Track) GetDownloadUrl(format int) (string, error) {
 	type StreamUrl struct {
 		Url string `json:"url"`
 	}
@@ -70,35 +98,45 @@ func (track *Track) downloadTrack(location string, format int, withProgress bool
 		{Name: "quality", Value: fmt.Sprint(format)},
 	})
 	if err != nil {
-		return fmt.Errorf("can't get stream URL: %w", err)
+		return "", fmt.Errorf("can't get stream URL: %w", err)
 	}
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
-		return fmt.Errorf("request failed with status: %d", res.StatusCode)
+		return "", fmt.Errorf("request failed with status: %d", res.StatusCode)
 	}
 
 	var response StreamUrl
 	if err = json.NewDecoder(res.Body).Decode(&response); err != nil {
-		return fmt.Errorf("can't decode stream response: %w", err)
+		return "", fmt.Errorf("can't decode stream response: %w", err)
 	}
 
-	res, err = _request(response.Url, false, []QueryParams{})
+	return response.Url, nil
+}
+
+func (track *Track) downloadTrack(location string, format int, tk *progress.Tracker) error {
+	streamUrl, err := track.GetDownloadUrl(format)
+
+	if err != nil {
+		return fmt.Errorf("unable to fetch stream url")
+	}
+
+	res, err := _request(streamUrl, false, []QueryParams{})
 	if err != nil {
 		return fmt.Errorf("request failed: %w", err)
 	}
 	defer res.Body.Close()
 
 	// With progress bar
-	if withProgress {
-		f, err := os.OpenFile(location, os.O_CREATE|os.O_WRONLY, 0644)
+	if tk != nil {
+		out, err := os.OpenFile(location, os.O_CREATE|os.O_WRONLY, 0644)
 
 		if err != nil {
 			return fmt.Errorf("can't create file %s: %w", location, err)
 		}
 
-		bar := NewProgressBar(int(res.ContentLength), "TRACK", fmt.Sprintf("Downloading track %s", track.Title), true)
-		io.Copy(io.MultiWriter(f, bar), res.Body)
+		// Delegate rendering the progress bar to parent which is invoking the function
+		track.TrackProgress(tk, res, out)
 	} else {
 		// Without progress bar
 		trackBytes, err := io.ReadAll(res.Body)
@@ -149,7 +187,19 @@ func (track *Track) Download(format int) error {
 	}
 
 	PrintColor(COLOR_GREEN, "Starting download for track %s\n", track.Title)
-	err := track.downloadTrack(location, format, true)
+
+	pw := InitProgress()
+	sizes := GetTrackersTrackSizes([]Track{*track}, format)
+
+	if len(sizes) == 0 {
+		return fmt.Errorf("unable to get size of track: %s", track.Title)
+	}
+
+	pw.AppendTracker(sizes[0])
+	go pw.Render()
+
+	err := track.downloadTrack(location, format, sizes[0])
+
 	if err != nil {
 		return fmt.Errorf("%w", err)
 	}

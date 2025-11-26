@@ -30,9 +30,14 @@ type TrackResults struct {
 	Items []Track `json:"tracks"`
 }
 
+type ArtistResults struct {
+	Items []Artist
+}
+
 type SearchResults struct {
-	Tracks TrackResults
-	Albums AlbumsResults
+	Tracks  TrackResults
+	Albums  AlbumsResults
+	Artists ArtistResults
 }
 
 type QueryParams struct {
@@ -240,8 +245,8 @@ func Search(query string, queryType string) (*SearchResults, error) {
 		return nil, fmt.Errorf("you must provide a valid query parameter")
 	}
 
-	if queryType != "album" && queryType != "track" {
-		return nil, fmt.Errorf("you must provide a queryType of either type `track` or `album`")
+	if queryType != "album" && queryType != "track" && queryType != "artist" {
+		return nil, fmt.Errorf("you must provide a queryType of either type `track`, `album` or `artist`")
 	}
 
 	res, err := _request("api/search", true, []QueryParams{
@@ -276,6 +281,44 @@ func Search(query string, queryType string) (*SearchResults, error) {
 		}
 
 		searchResponse.Tracks = response
+	case "artist":
+		// var response ArtistResults
+
+		artists := make(map[float64]Artist)
+		rawJSON := make(map[string]any)
+
+		err = json.NewDecoder(res.Body).Decode(&rawJSON)
+
+		if err != nil {
+			return nil, fmt.Errorf("cannot decode response: %w", err)
+		}
+
+		var tracks = rawJSON["tracks"].([]any)
+
+		for _, t := range tracks {
+			t, ok := t.(map[string]any)
+			if !ok {
+				return nil, fmt.Errorf("track item is not an object")
+			}
+			var artistId float64 = t["artistId"].(float64)
+			_, ok = artists[artistId]
+			if artistId != 0 && !ok {
+				id := ID(artistId)
+				artists[artistId] = Artist{
+					Id:   id,
+					Name: t["artist"].(string),
+				}
+			}
+		}
+
+		artistsSlice := make([]Artist, 0, len(artists))
+		for _, artist := range artists {
+			artistsSlice = append(artistsSlice, artist)
+		}
+		searchResponse.Artists = ArtistResults{
+			Items: artistsSlice,
+		}
+
 	}
 
 	return &searchResponse, nil

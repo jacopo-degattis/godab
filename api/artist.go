@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"godab/config"
 	"os"
+
+	"github.com/jedib0t/go-pretty/v6/progress"
 )
 
 type Artist struct {
@@ -12,6 +14,21 @@ type Artist struct {
 	Name        string `json:"name"`
 	AlbumsCount int    `json:"albumsCount"`
 	Albums      []Album
+}
+
+type RenderMode int
+
+const (
+	ModeDefault RenderMode = iota
+	ModeTrackDownload
+	ModeAlbumDownload
+	ModeArtistDownload
+)
+
+type RenderContext struct {
+	Pw      progress.Writer
+	Mode    RenderMode
+	Tracker *progress.Tracker
 }
 
 func NewArtist(artistId string) (*Artist, error) {
@@ -41,7 +58,7 @@ func NewArtist(artistId string) (*Artist, error) {
 	return &response.Artist, nil
 }
 
-func (artist *Artist) downloadArtist(format int) error {
+func (artist *Artist) downloadArtist(format int, rc RenderContext) error {
 	type Response struct {
 		Artist Artist `json:"artist"`
 		Album  Album  `json:"album"`
@@ -54,8 +71,22 @@ func (artist *Artist) downloadArtist(format int) error {
 	}
 
 	// bar := progressbar.Default(int64(len(artist.Albums)))
-
+	trackers := make([]*progress.Tracker, 0)
 	for _, album := range artist.Albums {
+		trk := &progress.Tracker{
+			Message: album.Title,
+			Total:   int64(album.TrackCount),
+			Units:   progress.UnitsDefault,
+		}
+		trackers = append(trackers, trk)
+	}
+
+	pw := rc.Pw
+
+	go pw.Render()
+	pw.AppendTrackers(trackers)
+
+	for idx, album := range artist.Albums {
 		res, err := _request("api/album", true, []QueryParams{
 			{Name: "albumId", Value: album.Id},
 		})
@@ -69,7 +100,8 @@ func (artist *Artist) downloadArtist(format int) error {
 			return fmt.Errorf("failed decoding response: %w", err)
 		}
 
-		if err = response.Album.Download(format, false); err != nil {
+		rc.Tracker = trackers[idx]
+		if err = response.Album.downloadAlbum(format, rc); err != nil {
 			return fmt.Errorf("%w", err)
 		}
 
@@ -84,8 +116,14 @@ func (artist *Artist) Download(format int) error {
 		return fmt.Errorf("artist %d has no albums", artist.Id)
 	}
 
+	pw := InitProgress()
+	rc := RenderContext{
+		Pw:   pw,
+		Mode: ModeArtistDownload,
+	}
+
 	PrintColor(COLOR_GREEN, "Starting download for artist %s\n", artist.Name)
-	err := artist.downloadArtist(format)
+	err := artist.downloadArtist(format, rc)
 
 	if err != nil {
 		return fmt.Errorf("%w", err)
