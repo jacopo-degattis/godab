@@ -8,6 +8,8 @@ import (
 	"os"
 	"sync"
 	"time"
+
+	"github.com/jedib0t/go-pretty/v6/progress"
 )
 
 type Album struct {
@@ -16,10 +18,9 @@ type Album struct {
 	Artist      string  `json:"artist"`
 	Cover       string  `json:"cover"`
 	ReleaseDate string  `json:"releaseDate"`
+	TrackCount  int     `json:"trackCount"`
 	Tracks      []Track `json:"tracks"`
 }
-
-// outputLocation and DAB_ENDPOINT should be loaded from a config or from a .env file to fix the api reference problem
 
 func NewAlbum(albumId string) (*Album, error) {
 	type Response struct {
@@ -49,7 +50,7 @@ func NewAlbum(albumId string) (*Album, error) {
 	return &response.Album, nil
 }
 
-func (album *Album) downloadAlbum(format int) error {
+func (album *Album) downloadAlbum(format int, rc RenderContext) error {
 	outputLocation := config.GetDownloadLocation()
 
 	if !DirExists(outputLocation) {
@@ -74,26 +75,35 @@ func (album *Album) downloadAlbum(format int) error {
 		return fmt.Errorf("can't create dir %s", albumLocation)
 	}
 
-	bar := NewProgressBar(len(album.Tracks), "ALBUM", fmt.Sprintf("Downloading %s", album.Title), false)
-	bar.RenderBlank()
-
 	progressChan := make(chan int, len(album.Tracks))
-	go func() {
-		for range progressChan {
-			bar.Add(1)
-		}
-	}()
 
 	for i := range album.Tracks {
 		album.Tracks[i].TrackNumber = i + 1
 	}
 
-	tracksToDownload := album.Tracks
-	var failedTracks []Track
 	maxRetries := 3
 	maxConcurrent := 3
+	var failedTracks []Track
+	tracksToDownload := album.Tracks
 
-	for i := 0; i < maxRetries; i++ {
+	trackers := make([]*progress.Tracker, 0)
+
+	switch rc.Mode {
+	case ModeAlbumDownload:
+		pw := rc.Pw
+
+		pw.SetNumTrackersExpected(len(tracksToDownload))
+		pw.Style().Visibility.TrackerOverall = true
+
+		trackers = GetTrackersTrackSizes(tracksToDownload, format)
+		pw.AppendTrackers(trackers)
+
+		go pw.Render()
+	case ModeArtistDownload:
+		rc.Pw.SetNumTrackersExpected(len(tracksToDownload))
+	}
+
+	for i := range maxRetries {
 		if len(tracksToDownload) == 0 {
 			break // All tracks downloaded successfully
 		}
@@ -106,11 +116,16 @@ func (album *Album) downloadAlbum(format int) error {
 		sem := make(chan struct{}, maxConcurrent)
 		failedTracksChan := make(chan Track, len(tracksToDownload))
 
-		for _, track := range tracksToDownload {
+		for idx, track := range tracksToDownload {
 			wg.Add(1)
 			sem <- struct{}{}
 
-			go func(track Track) {
+			var trk *progress.Tracker = nil
+			if rc.Mode == ModeAlbumDownload {
+				trk = trackers[idx]
+			}
+
+			go func(track Track, tk *progress.Tracker) {
 				defer wg.Done()
 				defer func() { <-sem }()
 
@@ -128,7 +143,11 @@ func (album *Album) downloadAlbum(format int) error {
 				}
 
 				location := fmt.Sprintf("%s/%s.%s", albumLocation, trackName, fileFormat)
-				err := track.downloadTrack(location, format, false)
+				err := track.downloadTrack(location, format, tk)
+
+				if rc.Mode == ModeArtistDownload {
+					rc.Tracker.Increment(1)
+				}
 
 				if err != nil {
 					failedTracksChan <- track
@@ -136,7 +155,7 @@ func (album *Album) downloadAlbum(format int) error {
 					progressChan <- 1
 				}
 				time.Sleep(time.Duration(rand.Intn(1500)+500) * time.Millisecond)
-			}(track)
+			}(track, trk)
 		}
 
 		wg.Wait()
@@ -151,7 +170,6 @@ func (album *Album) downloadAlbum(format int) error {
 	}
 
 	close(progressChan)
-	bar.Finish()
 
 	if len(failedTracks) > 0 {
 		var errorMessages []string
@@ -169,7 +187,13 @@ func (album *Album) Download(format int, log bool) error {
 		PrintColor(COLOR_GREEN, "Starting download for album %s\n", album.Title)
 	}
 
-	err := album.downloadAlbum(format)
+	pw := InitProgress()
+	rc := RenderContext{
+		Pw:   pw,
+		Mode: ModeAlbumDownload,
+	}
+
+	err := album.downloadAlbum(format, rc)
 
 	if err != nil {
 		return fmt.Errorf("%w", err)

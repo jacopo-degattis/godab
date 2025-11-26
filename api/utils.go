@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/schollz/progressbar/v3"
+	"github.com/jedib0t/go-pretty/table"
 )
 
 type Color int
@@ -34,6 +34,22 @@ const (
 	COLOR_WHITE
 )
 
+var FormatMap = map[string]int{
+	"mp3":  5,
+	"flac": 27,
+}
+
+func PrintError(msg string) {
+	PrintColor(COLOR_RED, "%s", msg)
+	os.Exit(1)
+}
+
+func CheckErr(err error) {
+	if err != nil {
+		PrintError(err.Error())
+	}
+}
+
 func DirExists(path string) bool {
 	info, err := os.Stat(path)
 	if os.IsNotExist(err) {
@@ -52,39 +68,6 @@ func PrintColor(color Color, format string, args ...any) {
 	println(colorMapping[color] + statement + colorMapping[COLOR_RESET])
 }
 
-func NewProgressBar(maxValue int, downloadType string, description string, isBytes bool) *progressbar.ProgressBar {
-	var bar *progressbar.ProgressBar
-
-	if isBytes {
-		bar = progressbar.NewOptions(maxValue,
-			progressbar.OptionShowBytes(true),
-			progressbar.OptionShowTotalBytes(true),
-			progressbar.OptionEnableColorCodes(true),
-			progressbar.OptionSetDescription(fmt.Sprintf("[cyan][%s][reset] %s", downloadType, description)),
-			progressbar.OptionSetTheme(progressbar.Theme{
-				Saucer:        "[green]=[reset]",
-				SaucerHead:    "[green]>[reset]",
-				SaucerPadding: " ",
-				BarStart:      "[",
-				BarEnd:        "]",
-			}))
-		return bar
-	}
-
-	bar = progressbar.NewOptions(maxValue,
-		progressbar.OptionEnableColorCodes(true),
-		progressbar.OptionSetDescription(fmt.Sprintf("[cyan][%s][reset] %s", downloadType, description)),
-		progressbar.OptionSetTheme(progressbar.Theme{
-			Saucer:        "[green]=[reset]",
-			SaucerHead:    "[green]>[reset]",
-			SaucerPadding: " ",
-			BarStart:      "[",
-			BarEnd:        "]",
-		}))
-
-	return bar
-}
-
 func SanitizeFilename(filename string) string {
 	badCharacters := []string{"\\", "/", "<", ">", "?", "*", "|", "\"", ":"}
 	sanitized := filename
@@ -99,4 +82,36 @@ func SanitizeFilename(filename string) string {
 	}
 
 	return sanitized
+}
+
+func PrintResultsTable(results *SearchResults, resultType string) {
+	var (
+		colIndex       = "#"
+		colId          = "Track ID"
+		colTitle       = "Title"
+		colArtist      = "Artist"
+		colReleaseDate = "Release date"
+	)
+
+	tw := table.NewWriter()
+
+	switch resultType {
+	case "track":
+		tw.AppendHeader(table.Row{colIndex, colId, colTitle, colArtist, colReleaseDate})
+		for idx, track := range results.Tracks.Items {
+			tw.AppendRow(table.Row{idx, track.Id, track.Title, track.Artist, track.ReleaseDate})
+		}
+	case "album":
+		tw.AppendHeader(table.Row{colIndex, "Album ID", colTitle, colArtist, colReleaseDate})
+		for idx, album := range results.Albums.Items {
+			tw.AppendRow(table.Row{idx, album.Id, album.Title, album.Artist, album.ReleaseDate})
+		}
+	case "artist":
+		tw.AppendHeader(table.Row{colIndex, "Artist ID", "Name"})
+		for idx, artist := range results.Artists.Items {
+			tw.AppendRow(table.Row{idx, artist.Id, artist.Name})
+		}
+	}
+
+	fmt.Println(tw.Render())
 }
