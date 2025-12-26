@@ -9,10 +9,15 @@ A [dabmusic](https://dabmusic.xyz) CLI downloader written in go.
 You can download any album or track using the following commands
 
 ### First export needed env variables
-
+For MAC and Linux
 ```sh
 export DAB_ENDPOINT=<DAB_ENDPOINT>
 export DOWNLOAD_LOCATION=<LOCATION>
+```
+For Windows
+```sh
+set DAB_ENDPOINT=<DAB_ENDPOINT>
+set DOWNLOAD_LOCATION=<LOCATION>
 ```
 
 Like in the following example:
