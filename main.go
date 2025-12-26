@@ -15,7 +15,7 @@ func main() {
 	asciiArt := `
   ____           _       _
  / ___| ___   __| | __ _| |__
-| |  _ / _ \ / _\` + "`" + ` |/ _\` + "`" + ` | '_ \
+| |  _ / _ \ / _` + "`" + ` |/ _` + "`" + ` | '_ \
 | |_| | (_) | (_| | (_| | |_) |
  \____|\___/ \__,_|\__,_|_.__/
 `
@@ -23,17 +23,22 @@ func main() {
 	api.PrintColor(api.COLOR_BLUE, "%s", asciiArt)
 	api.PrintColor(api.COLOR_BLUE, "v%s", config.GetVersion())
 
-	loggedIn, err := api.LoadCookies()
-
-	if err != nil {
-		api.PrintError("You're not logged-in, please log in before using other commands")
+	isLoginCommand := false
+	if len(os.Args) > 1 && os.Args[1] == "login" {
+		isLoginCommand = true
 	}
 
-	if !loggedIn {
-		api.PrintError("You must be logged in to download from dabmusic")
+	loggedIn, err := api.LoadCookies()
+
+	if !isLoginCommand {
+		if err != nil {
+			api.PrintError("You're not logged-in. Run 'login' command first.")
+		}
+
+		if !loggedIn {
+			api.PrintError("You must be logged in to download from dabmusic")
+		}
 	}
 
 	cmd.Execute()
-
-	os.Exit(0)
 }
