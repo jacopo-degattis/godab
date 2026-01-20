@@ -1,7 +1,6 @@
 package api
 
 import (
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"godab/config"
@@ -9,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"strconv"
-	"time"
 
 	"github.com/jedib0t/go-pretty/v6/progress"
 )
@@ -27,19 +25,6 @@ func (pr *ProgressReader) Read(p []byte) (int, error) {
 		pr.Tracker.SetValue(pr.Progress)
 	}
 	return n, err
-}
-
-var downloadClient = &http.Client{
-	Transport: &http.Transport{
-		TLSClientConfig: &tls.Config{
-			MinVersion: tls.VersionTLS13,
-		},
-		IdleConnTimeout:       100000 * time.Second,
-		TLSHandshakeTimeout:   100000 * time.Second,
-		ExpectContinueTimeout: 100000 * time.Second,
-	},
-	Jar:     jar,
-	Timeout: 0,
 }
 
 type Track struct {
@@ -148,7 +133,7 @@ func (track *Track) downloadTrack(location string, format int, tk *progress.Trac
 
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36")
 
-	res, err := downloadClient.Do(req)
+	res, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("download request failed: %w", err)
 	}

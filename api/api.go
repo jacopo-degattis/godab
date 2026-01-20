@@ -15,7 +15,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 
 	"go.senan.xyz/taglib"
 )
@@ -60,12 +59,12 @@ var client = &http.Client{
 		TLSClientConfig: &tls.Config{
 			MinVersion: tls.VersionTLS13,
 		},
-		IdleConnTimeout:       100000 * time.Second,
-		TLSHandshakeTimeout:   100000 * time.Second,
-		ExpectContinueTimeout: 100000 * time.Second,
+		IdleConnTimeout:       config.GetIdleConnTimeout(),
+		TLSHandshakeTimeout:   config.GetTLSHandshakeTimeout(),
+		ExpectContinueTimeout: config.GetExpectContinueTimeout(),
 	},
 	Jar:     jar,
-	Timeout: 0,
+	Timeout: config.GetTimeout(),
 }
 
 func (id *ID) UnmarshalJSON(data []byte) error {
