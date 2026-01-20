@@ -79,3 +79,12 @@ N.B: Remember that you always have to define two env variables
 
 - DOWNLOAD_LOCATION: to specify the location where you want your files to be downloaded
 - DAB_ENDPOINT: url of the `dab.yeet` domain you want to hit
+
+### Optional timeout parameters
+
+You can also set the following optional environment variables to customize timeouts (values should be in Go duration format, e.g., "120s", "2m"):
+
+- `IDLE_CONN_TIMEOUT`: Timeout for idle connections (default: 120s)
+- `TLS_HANDSHAKE_TIMEOUT`: Timeout for TLS handshake (default: 120s)
+- `EXPECT_CONTINUE_TIMEOUT`: Timeout for expect continue (default: 120s)
+- `TIMEOUT`: General request timeout (default: 120s)

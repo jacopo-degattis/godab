@@ -15,7 +15,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 
 	"go.senan.xyz/taglib"
 )
@@ -60,12 +59,14 @@ var client = &http.Client{
 		TLSClientConfig: &tls.Config{
 			MinVersion: tls.VersionTLS13,
 		},
+		IdleConnTimeout:       config.GetIdleConnTimeout(),
+		TLSHandshakeTimeout:   config.GetTLSHandshakeTimeout(),
+		ExpectContinueTimeout: config.GetExpectContinueTimeout(),
 	},
 	Jar:     jar,
-	Timeout: 30 * time.Second,
+	Timeout: config.GetTimeout(),
 }
 
-// Support both album kind of track and single-track search
 func (id *ID) UnmarshalJSON(data []byte) error {
 	s := string(data)
 	s = strings.Trim(s, `"`)
@@ -230,7 +231,6 @@ func Login(email string, password string) error {
 				Value: token,
 			},
 		})
-
 	}
 
 	if err != nil {
@@ -263,7 +263,6 @@ func Search(query string, queryType string) (*SearchResults, error) {
 
 	switch queryType {
 	case "album":
-
 		var albums AlbumsResults
 		err = json.NewDecoder(res.Body).Decode(&albums)
 
@@ -282,8 +281,6 @@ func Search(query string, queryType string) (*SearchResults, error) {
 
 		searchResponse.Tracks = response
 	case "artist":
-		// var response ArtistResults
-
 		artists := make(map[float64]Artist)
 		rawJSON := make(map[string]any)
 
@@ -318,7 +315,6 @@ func Search(query string, queryType string) (*SearchResults, error) {
 		searchResponse.Artists = ArtistResults{
 			Items: artistsSlice,
 		}
-
 	}
 
 	return &searchResponse, nil

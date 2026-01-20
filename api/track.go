@@ -20,8 +20,10 @@ type ProgressReader struct {
 
 func (pr *ProgressReader) Read(p []byte) (int, error) {
 	n, err := pr.Reader.Read(p)
-	pr.Progress += int64(n)
-	pr.Tracker.SetValue(pr.Progress)
+	if n > 0 {
+		pr.Progress += int64(n)
+		pr.Tracker.SetValue(pr.Progress)
+	}
 	return n, err
 }
 
@@ -56,17 +58,20 @@ func NewTrack(trackId string) (*Track, error) {
 	return track, nil
 }
 
-func (track *Track) TrackProgress(tk *progress.Tracker, res *http.Response, file *os.File) {
+func (track *Track) TrackProgress(tk *progress.Tracker, res *http.Response, file *os.File) error {
 	pr := &ProgressReader{
 		Reader:  res.Body,
 		Tracker: tk,
 	}
 
-	_, err := io.Copy(file, pr)
+	buf := make([]byte, 32*1024)
+	_, err := io.CopyBuffer(file, pr, buf)
 
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("copy error: %w", err)
 	}
+
+	return nil
 }
 
 func (track *Track) GetTrackMetadata() (Track, error) {
@@ -118,35 +123,45 @@ func (track *Track) downloadTrack(location string, format int, tk *progress.Trac
 	streamUrl, err := track.GetDownloadUrl(format)
 
 	if err != nil {
-		return fmt.Errorf("unable to fetch stream url")
+		return fmt.Errorf("unable to fetch stream url: %w", err)
 	}
 
-	res, err := _request(streamUrl, false, []QueryParams{})
+	req, err := http.NewRequest(http.MethodGet, streamUrl, nil)
 	if err != nil {
-		return fmt.Errorf("request failed: %w", err)
+		return fmt.Errorf("can't create request: %w", err)
+	}
+
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36")
+
+	res, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("download request failed: %w", err)
 	}
 	defer res.Body.Close()
 
-	// With progress bar
+	if res.StatusCode != http.StatusOK {
+		return fmt.Errorf("download failed with status: %d", res.StatusCode)
+	}
+
+	if contentLength := res.ContentLength; contentLength > 0 && tk != nil {
+		tk.Total = contentLength
+	}
+
+	out, err := os.OpenFile(location, os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return fmt.Errorf("can't create file %s: %w", location, err)
+	}
+	defer out.Close()
+
 	if tk != nil {
-		out, err := os.OpenFile(location, os.O_CREATE|os.O_WRONLY, 0644)
-
+		err = track.TrackProgress(tk, res, out)
 		if err != nil {
-			return fmt.Errorf("can't create file %s: %w", location, err)
+			return fmt.Errorf("download with progress failed: %w", err)
 		}
-
-		// Delegate rendering the progress bar to parent which is invoking the function
-		track.TrackProgress(tk, res, out)
 	} else {
-		// Without progress bar
-		trackBytes, err := io.ReadAll(res.Body)
+		_, err = io.Copy(out, res.Body)
 		if err != nil {
-			return fmt.Errorf("can't read from body: %w", err)
-		}
-
-		err = os.WriteFile(location, trackBytes, 0644)
-		if err != nil {
-			return fmt.Errorf("cannot save file: %w", err)
+			return fmt.Errorf("download failed: %w", err)
 		}
 	}
 
@@ -169,9 +184,8 @@ func (track *Track) downloadTrack(location string, format int, tk *progress.Trac
 func (track *Track) Download(format int) error {
 	var rootFolder = fmt.Sprintf("%s/%s", config.GetDownloadLocation(), SanitizeFilename(track.Artist))
 
-	// Create artist folder if it doesn't exist
 	if !DirExists(rootFolder) {
-		os.Mkdir(rootFolder, 0755)
+		os.MkdirAll(rootFolder, 0755)
 	}
 
 	fileFormat := "flac"
@@ -201,7 +215,7 @@ func (track *Track) Download(format int) error {
 	err := track.downloadTrack(location, format, sizes[0])
 
 	if err != nil {
-		return fmt.Errorf("%w", err)
+		return fmt.Errorf("download failed: %w", err)
 	}
 
 	return nil

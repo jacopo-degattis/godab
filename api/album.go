@@ -59,7 +59,6 @@ func (album *Album) downloadAlbum(format int, rc RenderContext) error {
 
 	var rootFolder = fmt.Sprintf("%s/%s", outputLocation, SanitizeFilename(album.Artist))
 
-	// Create artist folder if it doesn't exist
 	if !DirExists(rootFolder) {
 		os.Mkdir(rootFolder, 0755)
 	}
@@ -103,9 +102,9 @@ func (album *Album) downloadAlbum(format int, rc RenderContext) error {
 		rc.Pw.SetNumTrackersExpected(len(tracksToDownload))
 	}
 
-	for i := range maxRetries {
+	for i := 0; i < maxRetries; i++ {
 		if len(tracksToDownload) == 0 {
-			break // All tracks downloaded successfully
+			break
 		}
 
 		if i > 0 {
@@ -161,7 +160,7 @@ func (album *Album) downloadAlbum(format int, rc RenderContext) error {
 		wg.Wait()
 		close(failedTracksChan)
 
-		failedTracks = nil // Reset the list for the current retry attempt
+		failedTracks = nil
 		for failedTrack := range failedTracksChan {
 			failedTracks = append(failedTracks, failedTrack)
 		}
